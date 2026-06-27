@@ -1,21 +1,26 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
 
-# Root route - Login page dikhayega
+# Home Page (Landing Page)
 @app.route('/')
 def home():
+    return render_template('login.html') # Yahan tumhara naya UI design show hoga
+
+# Login Page Route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        print(f"Captured: {username} / {password}") # Data console mein dikhega
+        return "Login successful! (Redirecting...)"
     return render_template('login.html')
 
-# Form submission handle karega
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.form.get('username')
-    password = request.form.get('password')
-    
-    # Yahan hum baad mein Playwright ka logic add karenge
-    print(f"User attempting login: {username}")
-    return "Login credentials captured! (Backend logic pending)"
+# Sign Up Page Route
+@app.route('/signup')
+def signup():
+    return "Sign Up Page is currently under construction!"
 
 if __name__ == '__main__':
     app.run(debug=True)
