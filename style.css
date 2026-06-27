@@ -1,9 +1,7 @@
-body { background-color: #fff; font-family: Arial, sans-serif; margin: 0; text-align: center; }
-.top-nav { display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid #dbdbdb; }
-.open-app-btn { background-color: #4480f8; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
-.main-content { margin-top: 100px; }
-.big-logo { font-family: cursive; font-size: 3rem; }
-.cta-btn { background-color: #4480f8; color: white; border: none; padding: 15px 80px; border-radius: 10px; font-weight: bold; cursor: pointer; margin: 20px 0; }
-.auth-links { color: #0095f6; font-weight: bold; }
-.auth-links a { text-decoration: none; color: #0095f6; }
-.footer { margin-top: 150px; color: #8e8e8e; }
+body { background-color: #fafafa; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+.view { background: white; border: 1px solid #dbdbdb; padding: 40px; width: 350px; text-align: center; }
+.logo { font-family: cursive; font-size: 3rem; margin-bottom: 20px; }
+.cta-btn, .login-btn { width: 100%; padding: 12px; background: #0095f6; color: white; border: none; border-radius: 5px; cursor: pointer; }
+input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #dbdbdb; box-sizing: border-box; }
+.auth-links { margin-top: 20px; color: #0095f6; font-weight: bold; cursor: pointer; }
+.forgot { display: block; margin-top: 15px; color: #00376b; text-decoration: none; }
