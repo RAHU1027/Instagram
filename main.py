@@ -6,7 +6,7 @@ import telebot # aiogram ki jagah telebot
 import requests
 
 # CONFIG
-API_TOKEN = '8878551213:AAEuXkfq8ZLkBZYZ7umIhrePCWKyinJObDw'
+API_TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
 SECRET_KEY = "rk_test_51Toge60PPaNM3lnKN6oFr6JU6P4lrTtzwComE7wc6e1Nmy4BdUK2qYEKGxmNUQGbxlRkiw0ZujH1Dcu8hcvi0JZp00qtqZ7rfl"
 ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif"
 
