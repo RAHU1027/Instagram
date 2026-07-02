@@ -8,7 +8,7 @@ from flask import Flask
 
 # CONFIG
 API_TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
-SECRET_KEY = "mk_1TogeC0PPaNM3lnKl6Bk78Ur"
+SECRET_KEY = "sk_test_51Toge60PPaNM3lnKldVYOSTT8QFsujYTHJ02OfDWqo82B1okdG9vYItCp6bQvLcFGqCkYcQyOHgSMFLQFRQab2lz00H80IHrEc"
 ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTjJp9tYyG2cKc/giphy.gif"
 
 logging.basicConfig(level=logging.INFO)
