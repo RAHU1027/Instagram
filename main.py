@@ -1,10 +1,8 @@
 import logging
 import os
 import threading
-import asyncio
 from flask import Flask
-from aiogram import Bot, Dispatcher, types, executor
-from aiogram.types import BotCommand
+import telebot # aiogram ki jagah telebot
 import requests
 
 # CONFIG
@@ -13,8 +11,7 @@ SECRET_KEY = "rk_test_51Toge60PPaNM3lnKN6oFr6JU6P4lrTtzwComE7wc6e1Nmy4BdUK2qYEKG
 ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif"
 
 logging.basicConfig(level=logging.INFO)
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
 # FORMATTING DESIGN
@@ -46,35 +43,37 @@ def check_cc(cc, mm, yy, cvc):
     except: return "Declined", {}
 
 # COMMANDS
-@dp.message_handler(commands=['start'])
-async def start(message: types.Message):
-    loading = await bot.send_animation(message.chat.id, animation=ANIMATION_URL)
-    await bot.delete_message(message.chat.id, message.message_id)
-    await asyncio.sleep(2.5)
-    await bot.delete_message(message.chat.id, loading.message_id)
-    await message.answer("✅ Kushal Bot Ready! Commands menu dekhein.")
+@bot.message_handler(commands=['start'])
+def start(message):
+    loading = bot.send_animation(message.chat.id, animation=ANIMATION_URL)
+    bot.delete_message(message.chat.id, message.message_id)
+    # telebot mein simple sleep use hota hai
+    import time
+    time.sleep(2.5)
+    bot.delete_message(message.chat.id, loading.message_id)
+    bot.send_message(message.chat.id, "✅ Kushal Bot Ready! Commands menu dekhein.")
 
-@dp.message_handler(commands=['chk'])
-async def chk(message: types.Message):
-    await message.reply("CC bhejein: `cc|mm|yy|cvc`")
+@bot.message_handler(commands=['chk'])
+def chk(message):
+    bot.reply_to(message, "CC bhejein: `cc|mm|yy|cvc`", parse_mode="Markdown")
 
-@dp.message_handler(commands=['st'])
-async def st(message: types.Message):
-    await message.reply("Status: ONLINE ✅\nUptime: Active on Render")
+@bot.message_handler(commands=['st'])
+def st(message):
+    bot.reply_to(message, "Status: ONLINE ✅\nUptime: Active on Render")
 
 # FILE PROCESSING
-@dp.message_handler(content_types=['document'])
-async def handle_docs(message: types.Message):
-    file_info = await bot.get_file(message.document.file_id)
-    file = await bot.download_file(file_info.file_path)
-    lines = file.read().decode('utf-8').splitlines()
+@bot.message_handler(content_types=['document'])
+def handle_docs(message):
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    lines = downloaded_file.decode('utf-8').splitlines()
     
     for line in lines:
         try:
             parts = line.replace('|', ':').split(':')
             status, bin_info = check_cc(parts[0], parts[1], parts[2], parts[3])
             msg = get_format(parts[0], status, "Stripe", bin_info, message.from_user.username or "User")
-            await message.reply(msg, parse_mode="HTML")
+            bot.reply_to(message, msg, parse_mode="HTML")
         except: continue
 
 # WEB SERVER
@@ -82,16 +81,7 @@ async def handle_docs(message: types.Message):
 def home(): return "Bot is running!"
 
 if __name__ == '__main__':
-    # Set Commands
-    async def set_cmds():
-        await bot.set_my_commands([
-            BotCommand("start", "Start Bot"),
-            BotCommand("gen", "Generate CC"),
-            BotCommand("chk", "Check CC"),
-            BotCommand("st", "Status"),
-        ])
-    
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(set_cmds())
-    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))).start()
-    executor.start_polling(dp, skip_updates=True)
+    # Flask thread
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))), daemon=True).start()
+    # Telebot polling
+    bot.infinity_polling()
