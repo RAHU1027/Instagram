@@ -1,93 +1,106 @@
-import logging
 import os
-import threading
-import telebot
 import requests
-import time
 import random
+import asyncio
+import time
 from flask import Flask
+from threading import Thread
+from telegram import Update, constants
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# CONFIG
-API_TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
-SECRET_KEY = "sk_test_51Toge60PPaNM3lnKldVYOSTT8QFsujYTHJ02OfDWqo82B1okdG9vYItCp6bQvLcFGqCkYcQyOHgSMFLQFRQab2lz00H80IHrEc"
-ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTjJp9tYyG2cKc/giphy.gif"
+# --- CONFIG ---
+TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
+STRIPE_KEY = "sk_test_51Toge60PPaNM3lnKldVYOSTT8QFsujYTHJ02OfDWqo82B1okdG9vYItCp6bQvLcFGqCkYcQyOHgSMFLQFRQab2lz00H80IHrEc"
+OWNER_NAME = "🦋💸 ⃪♔‌⃟𝐊𝐔𝐒𝐇𝐀𝐋 ⚠️"
 
-logging.basicConfig(level=logging.INFO)
-bot = telebot.TeleBot(API_TOKEN)
+# --- WEB SERVER ---
 app = Flask(__name__)
-
-# BIN LOOKUP
-def get_bin_info(cc):
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(f"https://lookup.binlist.net/{cc[:6]}", headers=headers, timeout=5).json()
-        return {
-            "bank": res.get("bank", {}).get("name", "N/A"),
-            "type": res.get("type", "N/A"),
-            "country": res.get("country", {}).get("name", "N/A")
-        }
-    except: return {"bank": "N/A", "type": "N/A", "country": "N/A"}
-
-# FORMATTING - Updated with your requested design and User Name
-def get_format(cc, mm, yy, cvc, status, gate, bin_info, user_name, user_id, error_msg):
-    icon = "✅" if status == "Approved" else "❌"
-    status_text = "Approved" if status == "Approved" else "Declined/Maintenance 🛠"
-    return (
-        f"💳 CC: <code>{cc}|{mm}|{yy}|{cvc}</code>\n"
-        f"📡 Status: {status_text} {icon}\n"
-        f"📝 Response: {error_msg}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"🏦 Bank: {bin_info.get('bank', 'N/A')}\n"
-        f"🌍 Country: {bin_info.get('country', 'N/A')}\n"
-        f"🛠 Gateway: {gate}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"👤 Checked by: {user_name}\n"
-        f"🆔 ID: {user_id}\n"
-        f"━━━━━━━━━━━━━━"
-    )
-
-# CHECKER LOGIC
-def check_cc(cc, mm, yy, cvc):
-    url = "https://api.stripe.com/v1/tokens"
-    headers = {"Authorization": f"Bearer {SECRET_KEY}"}
-    data = {"card[number]": cc, "card[exp_month]": mm, "card[exp_year]": yy, "card[cvc]": cvc}
-    try:
-        res = requests.post(url, headers=headers, data=data, timeout=10).json()
-        bin_info = get_bin_info(cc)
-        if "error" in res: return "Declined", bin_info, res['error'].get('message', 'Declined')
-        return "Approved", bin_info, "Card Approved"
-    except: return "Declined", get_bin_info(cc), "Connection Error"
-
-# COMMANDS
-@bot.message_handler(commands=['start'])
-def start(message):
-    loading = bot.send_animation(message.chat.id, animation=ANIMATION_URL)
-    time.sleep(2.5)
-    bot.delete_message(message.chat.id, loading.message_id)
-    bot.send_message(message.chat.id, "✨ *Welcome to KUSHAL PREMIUM BOT* ✨\n\nCommands:\n/chk cc|mm|yy|cvc - Check Card\n/gen bin - Generate\n/st - Check Status", parse_mode="Markdown")
-
-@bot.message_handler(commands=['chk', 'st'])
-def chk(message):
-    try:
-        data = message.text.split(' ', 1)[1]
-        parts = data.replace('|', ':').replace('/', ':').split(':')
-        status, bin_info, err = check_cc(parts[0], parts[1], parts[2], parts[3])
-        msg = get_format(parts[0], parts[1], parts[2], parts[3], status, "Stripe", bin_info, message.from_user.first_name, message.from_user.id, err)
-        bot.reply_to(message, msg, parse_mode="HTML")
-    except: bot.reply_to(message, "⚠️ Format error! Use: `.chk cc|mm|yy|cvc`")
-
-@bot.message_handler(commands=['gen'])
-def gen(message):
-    try:
-        bin_code = message.text.split(' ')[1]
-        cc = bin_code + ''.join([str(random.randint(0, 9)) for _ in range(16 - len(bin_code))])
-        bot.reply_to(message, f"💳 Generated: <code>{cc}|12|2027|000</code>", parse_mode="HTML")
-    except: bot.reply_to(message, "⚠️ Use: `.gen 465828`")
-
-# WEB SERVER
 @app.route('/')
-def home(): return "KUSHAL BOT IS ACTIVE"
+def home(): return "KUSHAL BOT IS LIVE!"
 
+def run_web():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
+# --- HELPERS ---
+def get_bin_info(cc_or_bin):
+    try:
+        res = requests.get(f"https://lookup.binlist.net/{cc_or_bin[:6]}", timeout=5).json()
+        bank = res.get('bank', {}).get('name', 'N/A')
+        brand = res.get('scheme', 'N/A')
+        type_cc = res.get('type', 'N/A')
+        country = res.get('country', {}).get('name', 'N/A')
+        return bank, f"{brand.upper()} - {type_cc.upper()} - Standard", country
+    except: return "N/A", "N/A", "N/A"
+
+def luhn_checksum(card_number):
+    digits = [int(d) for d in card_number]
+    for i in range(len(digits) - 2, -1, -2):
+        n = digits[i] * 2
+        digits[i] = n if n < 10 else n - 9
+    return (10 - (sum(digits) % 10)) % 10
+
+# --- COMMANDS ---
+async def start(update, context):
+    r_emoji = random.choice(["🔥", "✨", "🚀", "💎", "⚡"])
+    msg = await update.message.reply_text(f"{r_emoji} 𝗜𝗡𝗜𝗧𝗜𝗔𝗟𝗜𝗭𝗜𝗡𝗚 𝗦𝗬𝗦𝗧𝗘𝗠...")
+    await asyncio.sleep(0.5)
+    await msg.edit_text(f"{r_emoji} 𝗟𝗢𝗔𝗗𝗜𝗡𝗚: [■■■■■■■■■■] 100%")
+    await asyncio.sleep(0.4)
+    await msg.delete()
+    caption = f"✨ <b>Welcome to KUSHAL PREMIUM BOT</b> ✨\n👤 <b>Owner:</b> {OWNER_NAME}\n\nCommands: /chk [cc|mm|yy|cvc], /gen [bin]"
+    await update.message.reply_text(caption, parse_mode=constants.ParseMode.HTML)
+
+# --- CHECKER (/chk) ---
+async def chk(update, context):
+    try:
+        data = context.args[0]
+        parts = data.replace('|', ':').replace('/', ':').split(':')
+        cc, mm, yy, cvc = parts[0], parts[1], parts[2], parts[3]
+        
+        url = "https://api.stripe.com/v1/tokens"
+        res = requests.post(url, headers={"Authorization": f"Bearer {STRIPE_KEY}"}, 
+                            data={"card[number]": cc, "card[exp_month]": mm, "card[exp_year]": yy, "card[cvc]": cvc}).json()
+        
+        status = "Approved ✅" if "card" in res else "Declined ❌"
+        err = res.get('error', {}).get('message', 'Card added')
+        bank, full_type, country = get_bin_info(cc)
+        user_name = update.effective_user.first_name
+        
+        # Design requested
+        msg = (f"CC: <code>{cc}|{mm}|{yy}|{cvc}</code>\n"
+               f"Status: {status}\n"
+               f"Response: {err}\n"
+               f"Gateway: Stripe\n"
+               f"Bank: {bank}\n"
+               f"Type: {full_type}\n"
+               f"Country: {country}\n"
+               f"Checked by: {user_name}\n"
+               f"Credits left: 0")
+        await update.message.reply_text(msg, parse_mode=constants.ParseMode.HTML)
+    except: await update.message.reply_text("⚠️ Use: /chk cc|mm|yy|cvc")
+
+# --- GENERATOR (/gen) ---
+async def gen(update, context):
+    if not context.args:
+        await update.message.reply_text("❌ Use: /gen [bin]")
+        return
+    bin_input = context.args[0]
+    start_t = time.time()
+    bank, full_type, country = get_bin_info(bin_input)
+    cc_list = [f"<code>{bin_input[:6] + ''.join([str(random.randint(0, 9)) for _ in range(9)]) + str(luhn_checksum(bin_input[:6] + ''.join([str(random.randint(0, 9)) for _ in range(9)])))}|{str(random.randint(1, 12)).zfill(2)}|{random.randint(2026, 2036)}|{random.randint(100, 999)}</code>" for _ in range(10)]
+    
+    # Design requested
+    final_text = (f"𝙆𝙐𝙎𝙃𝘼𝙇 𝘽𝙊𝙏 🍁:\n[+] 𝙂𝙀𝙉𝙀𝙍𝘼𝙏𝙀𝘿 𝘾𝘼𝙍𝘿𝙎\n\n" + "\n".join(cc_list) + 
+                  f"\n\n──────────────\n💳 𝘽𝙄𝙉: {bin_input}\n🏦 𝘽𝘼𝙉𝙆: {bank}\n📡 𝙏𝙔𝙋𝙀: {full_type}\n🌍 𝘾𝙊𝙐𝙉𝙏𝙍𝙔: {country}\n"
+                  f"──────────────\n⏰ 𝙏𝙄𝙈𝙀: {round(time.time() - start_t, 2)}s\n👤 𝙊𝙒𝙉𝙀𝙍: {OWNER_NAME}")
+    await update.message.reply_text(final_text, parse_mode=constants.ParseMode.HTML)
+
+# --- MAIN ---
 if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))), daemon=True).start()
-    bot.infinity_polling()
+    Thread(target=run_web, daemon=True).start()
+    app_bot = ApplicationBuilder().token(TOKEN).build()
+    app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CommandHandler("chk", chk))
+    app_bot.add_handler(CommandHandler("st", chk))
+    app_bot.add_handler(CommandHandler("gen", gen))
+    app_bot.run_polling()
